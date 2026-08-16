@@ -28,30 +28,36 @@ export class UsersService {
     });
   }
 
-  findById(id: number) {
-    return this.usersRepository.findOne({
-      where: {
-        id,
-      },
-    });
-  }
+  // findById(id: number) {
+  //   return this.usersRepository.findOne({
+  //     where: {
+  //       id,
+  //     },
+  //   });
+  // }
 
   async findByEmailWithPassword(email: string) {
     return this.usersRepository
       .createQueryBuilder('user')
       .addSelect('user.password')
-      .addSelect('user.hashedRefreshToken')
       .where('user.email = :email', { email })
       .getOne();
   }
 
   async updateRefreshToken(
-    userId: number,
+    userId: string,
     hashedRefreshToken: any,
   ) {
     await this.usersRepository.update(userId, {
       hashedRefreshToken,
     });
+  }
+  async findByIdWithRefreshToken(userId: string) {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.hashedRefreshToken')
+      .where('user.id = :userId', { userId })
+      .getOne();
   }
 
   async delete(userId: string) {

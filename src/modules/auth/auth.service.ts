@@ -16,146 +16,226 @@ import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-
   constructor(
-
     private readonly usersService: UsersService,
-
     private readonly jwtService: JwtService,
-
     private readonly config: ConfigService,
-
   ) {}
+
+  /**
+   * Generate access token and refresh token
+   */
   private async getTokens(
-  userId: number,
-  email: string,
-) {
+    userId: string,
+    email: string,
+  ) {
+    const payload = {
+      sub: userId,
+      email,
+    };
 
-  const payload = {
-    sub: userId,
-    email,
-  };
+    const accessToken = await this.jwtService.signAsync(
+      payload,
+      {
+        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
+        expiresIn: this.config.get<string>(
+          'ACCESS_TOKEN_EXPIRES',
+          '15m',
+        ) as any,
+      },
+    );
 
-  const accessToken =
-    await this.jwtService.signAsync(payload, {
-      secret: this.config.get('JWT_ACCESS_SECRET'),
-      expiresIn: this.config.get('ACCESS_TOKEN_EXPIRES'),
-    });
+    const refreshToken = await this.jwtService.signAsync(
+      payload,
+      {
+        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.config.get<string>(
+          'REFRESH_TOKEN_EXPIRES',
+          '7d',
+        ) as any,
+      },
+    );
 
-  const refreshToken =
-    await this.jwtService.signAsync(payload, {
-      secret: this.config.get('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get('REFRESH_TOKEN_EXPIRES'),
-    });
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
 
-  return {
-    accessToken,
-    refreshToken,
-  };
-}
-private async updateRefreshToken(
-  userId: number,
-  refreshToken: string,
-) {
+  /**
+   * Hash and store refresh token
+   */
+  private async updateRefreshToken(
+    userId: string,
+    refreshToken: string,
+  ) {
+    const hash = await bcrypt.hash(
+      refreshToken,
+      10,
+    );
 
-  const hash = await bcrypt.hash(refreshToken, 10);
-
-  await this.usersService.updateRefreshToken(
-    userId,
-    hash,
-  );
-}
-
-async register(dto: RegisterDto) {
-
-  const existingUser =
-    await this.usersService.findByEmail(dto.email);
-
-  if (existingUser) {
-    throw new ConflictException(
-      'Email already exists',
+    await this.usersService.updateRefreshToken(
+      userId,
+      hash,
     );
   }
 
-  const password = await bcrypt.hash(
-    dto.password,
-    10,
-  );
+  /**
+   * Register user
+   */
+  async register(dto: RegisterDto) {
+    const existingUser =
+      await this.usersService.findByEmail(
+        dto.email,
+      );
 
-  const user =
-    this.usersService.create({
+    if (existingUser) {
+      throw new ConflictException(
+        'Email already exists',
+      );
+    }
 
+    const hashedPassword =
+      await bcrypt.hash(dto.password, 10);
+
+    const user = this.usersService.create({
       name: dto.name,
-
       email: dto.email,
-
-      password,
+      password: hashedPassword,
     });
 
-  const savedUser =
-    await this.usersService.save(user);
+    const savedUser =
+      await this.usersService.save(user);
 
-  const tokens =
-    await this.getTokens(
+    const tokens = await this.getTokens(
       savedUser.id,
       savedUser.email,
     );
 
-  await this.updateRefreshToken(
-    savedUser.id,
-    tokens.refreshToken,
-  );
-
-  return tokens;
-}
-
-async login(dto: LoginDto) {
-
-  const user =
-    await this.usersService.findByEmailWithPassword(
-      dto.email,
+    await this.updateRefreshToken(
+      savedUser.id,
+      tokens.refreshToken,
     );
 
-  if (!user) {
-    throw new UnauthorizedException(
-      'Invalid credentials',
-    );
+    return {
+      message: 'Registration successful',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
-  const match =
-    await bcrypt.compare(
-      dto.password,
-      user.password,
-    );
+  /**
+   * Login user
+   */
+  async login(dto: LoginDto) {
+    const user =
+      await this.usersService.findByEmailWithPassword(
+        dto.email,
+      );
 
-  if (!match) {
-    throw new UnauthorizedException(
-      'Invalid credentials',
-    );
-  }
+    if (!user) {
+      throw new UnauthorizedException(
+        'Invalid credentials',
+      );
+    }
 
-  const tokens =
-    await this.getTokens(
+    const isPasswordValid =
+      await bcrypt.compare(
+        dto.password,
+        user.password,
+      );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException(
+        'Invalid credentials',
+      );
+    }
+
+    const tokens = await this.getTokens(
       user.id,
       user.email,
     );
 
-  await this.updateRefreshToken(
-    user.id,
-    tokens.refreshToken,
-  );
+    await this.updateRefreshToken(
+      user.id,
+      tokens.refreshToken,
+    );
 
-  return tokens;
-}
-async logout(userId: number) {
+    return {
+      message: 'Login successful',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+  }
 
-  await this.usersService.updateRefreshToken(
-    userId,
-    null,
-  );
+  /**
+   * Logout user
+   */
+  async logout(userId: string) {
+    await this.usersService.updateRefreshToken(
+      userId,
+      null,
+    );
 
-  return {
-    message: 'Logged out successfully',
-  };
-}
+    return {
+      message: 'Logged out successfully',
+    };
+  }
+
+
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload =
+        await this.jwtService.verifyAsync<{
+          sub: string;
+          email: string;
+        }>(refreshToken, {
+          secret: this.config.get<string>(
+            'JWT_REFRESH_SECRET',
+          ),
+        });
+
+      const user =
+        await this.usersService.findByIdWithRefreshToken(
+          payload.sub,
+        );
+
+      if (
+        !user ||
+        !user.hashedRefreshToken
+      ) {
+        throw new UnauthorizedException(
+          'Invalid refresh token',
+        );
+      }
+
+      const refreshTokenMatches =
+        await bcrypt.compare(
+          refreshToken,
+          user.hashedRefreshToken,
+        );
+
+      if (!refreshTokenMatches) {
+        throw new UnauthorizedException(
+          'Invalid refresh token',
+        );
+      }
+
+      const tokens = await this.getTokens(
+        user.id,
+        user.email,
+      );
+
+      await this.updateRefreshToken(
+        user.id,
+        tokens.refreshToken,
+      );
+
+      return tokens;
+    } catch (error) {
+      throw new UnauthorizedException(
+        'Invalid or expired refresh token',
+      );
+    }
+  }
 }

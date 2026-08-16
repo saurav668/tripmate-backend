@@ -1,37 +1,37 @@
 import {
-  Entity,
   Column,
-  PrimaryGeneratedColumn,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({
-    length: 100,
-  })
+  @Column()
   name: string;
 
-  @Column({
-    unique: true,
-    length: 150,
-  })
+  @Column({ unique: true })
   email: string;
 
-  @Column({
-    select: false,
-  })
+  @Column({select:false})
   password: string;
-
+  
   @Column({
+    type: 'varchar',
     nullable: true,
-    select: false,
+    select: false
   })
-  hashedRefreshToken?: string;
+  hashedRefreshToken: string | null;
+
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ nullable: true })
+  profileImage: string;
 
   @CreateDateColumn()
   createdAt: Date;
