@@ -6,45 +6,46 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from './modules/auth/auth.module';
 
-import {UsersModule} from './modules/users/users.module'
+import { UsersModule } from './modules/users/users.module'
+import { TripsModule } from './modules/trips/trips.module';
 
 @Module({
 
-imports:[
+    imports: [
 
-ConfigModule.forRoot({
+        ConfigModule.forRoot({
 
-isGlobal:true,
+            isGlobal: true,
 
-}),
+        }),
 
-TypeOrmModule.forRoot({
+        TypeOrmModule.forRoot({
 
-type:"mysql",
+            type: "postgres",
 
-host:process.env.DB_HOST,
+            host: process.env.DB_HOST,
 
-port:Number(process.env.DB_PORT),
+            port: Number(process.env.DB_PORT),
 
-username:process.env.DB_USERNAME,
+            username: process.env.DB_USERNAME,
 
-password:process.env.DB_PASSWORD,
+            password: process.env.DB_PASSWORD,
 
-database:process.env.DB_NAME,
+            database: process.env.DB_NAME,
 
-autoLoadEntities:true,
+            autoLoadEntities: true,
 
-synchronize:true,
-logging:true,
+            synchronize: true,
+            // logging:true,
 
-}),
+        }),
 
-AuthModule,
+        AuthModule,
+        UsersModule,
+        TripsModule
 
-UsersModule
-
-]
+    ]
 
 })
 
-export class AppModule{}
+export class AppModule { }
