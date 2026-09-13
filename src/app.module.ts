@@ -8,6 +8,8 @@ import { AuthModule } from './modules/auth/auth.module';
 
 import { UsersModule } from './modules/users/users.module'
 import { TripsModule } from './modules/trips/trips.module';
+import { TripPartner } from './modules/trip-partner/entities/trip-partner.entity';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
 
@@ -42,7 +44,9 @@ import { TripsModule } from './modules/trips/trips.module';
 
         AuthModule,
         UsersModule,
-        TripsModule
+        TripsModule,
+        TripPartner,
+        NotificationsModule
 
     ]
 
