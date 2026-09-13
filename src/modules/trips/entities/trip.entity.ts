@@ -1,3 +1,4 @@
+import { TripPartnerStatus } from 'src/constant';
 import {
   Column,
   CreateDateColumn,
@@ -50,7 +51,7 @@ export class Trip {
     length: 30,
     default: 'PLANNING',
   })
-  status: string;
+  status: TripPartnerStatus;
 
   @CreateDateColumn()
   createdAt: Date;
